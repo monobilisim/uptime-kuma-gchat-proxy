@@ -2,7 +2,7 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
+[![GPLv3 License][license-shield]][license-url]
 
 <div align="center"> 
 
@@ -338,7 +338,11 @@ docker build -t uptime-kuma-gchat-proxy .
 
 ## License
 
-uptime-kuma-gchat-proxy is licensed under MIT. See [LICENSE](LICENSE) file for details.
+This project is released under the GNU General Public License v3.0.
+
+- You may run, study, share, and modify the software, provided derivative works remain GPL-compatible.
+- Source code for any distributed binaries must be made available to recipients.
+- The software is provided “as is”, without warranty; see [`LICENSE`](LICENSE) for the full text.
 
 [contributors-shield]: https://img.shields.io/github/contributors/monobilisim/uptime-kuma-gchat-proxy.svg?style=for-the-badge
 [contributors-url]: https://github.com/monobilisim/uptime-kuma-gchat-proxy/graphs/contributors
