@@ -1,3 +1,5 @@
+version: 2
+
 project_name: uptime-kuma-gchat-proxy
 
 before:
@@ -25,8 +27,6 @@ archives:
   - id: default
     builds:
       - binaries
-    replacements:
-      amd64: x86_64
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
