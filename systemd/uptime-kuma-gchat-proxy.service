@@ -1,0 +1,17 @@
+[Unit]
+Description=Uptime Kuma Google Chat Proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/uptime-kuma-gchat-proxy.env
+ExecStart=/usr/local/bin/uptime-kuma-gchat-proxy
+Restart=on-failure
+RestartSec=5s
+User=uptime-kuma
+Group=uptime-kuma
+
+[Install]
+WantedBy=multi-user.target
+

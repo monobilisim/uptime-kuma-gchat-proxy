@@ -27,6 +27,7 @@
 - [Usage](#usage)
 - [API Endpoints](#api-endpoints)
 - [Docker Deployment](#docker-deployment)
+- [Systemd Deployment](#systemd-deployment)
 - [Troubleshooting](#troubleshooting)
 - [Security](#security)
 - [Building](#building)
@@ -266,6 +267,29 @@ healthcheck:
   timeout: 10s
   retries: 3
   start_period: 40s
+```
+
+---
+
+## Systemd Deployment
+
+This repository includes a sample unit file at `systemd/uptime-kuma-gchat-proxy.service` for running the proxy as a systemd service on Linux hosts.
+
+1. Build or download the binary and place it in `/usr/local/bin/uptime-kuma-gchat-proxy`.
+2. Create an environment file (e.g. `/etc/uptime-kuma-gchat-proxy.env`) that defines at least `GOOGLE_CHAT_WEBHOOK_URL`.
+3. Copy the unit file into `/etc/systemd/system/` and adjust `User`, `Group`, or paths as needed.
+4. Reload systemd and enable the service:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now uptime-kuma-gchat-proxy.service
+   ```
+
+Check the status or logs with:
+
+```bash
+sudo systemctl status uptime-kuma-gchat-proxy.service
+sudo journalctl -u uptime-kuma-gchat-proxy.service -f
 ```
 
 ---
