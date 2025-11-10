@@ -83,8 +83,8 @@ type ButtonList struct {
 }
 
 type Button struct {
-	Text    string     `json:"text"`
-	OnClick *OnClick   `json:"onClick,omitempty"`
+	Text    string   `json:"text"`
+	OnClick *OnClick `json:"onClick,omitempty"`
 }
 
 type OnClick struct {
@@ -162,6 +162,11 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMessage {
+	cleanMsg := sanitizeText(notification.Msg)
+	cleanHeartbeatMsg := sanitizeText(notification.Heartbeat.Msg)
+	cleanURL := sanitizeText(notification.Monitor.URL)
+	cleanHostname := sanitizeText(notification.Monitor.Hostname)
+
 	// Determine status
 	isUp := notification.Heartbeat.Status == 1
 	statusEmoji := "🔴"
@@ -175,9 +180,9 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	title := fmt.Sprintf("%s - %s", statusLabel, notification.Monitor.Name)
 
 	// Build subtitle from message
-	subtitle := notification.Msg
+	subtitle := cleanMsg
 	if subtitle == "" {
-		subtitle = notification.Heartbeat.Msg
+		subtitle = cleanHeartbeatMsg
 	}
 	if subtitle == "" {
 		if isUp {
@@ -191,20 +196,24 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	widgets := []Widget{}
 
 	// Message detail if available
-	if notification.Heartbeat.Msg != "" {
+	if cleanHeartbeatMsg != "" {
 		widgets = append(widgets, Widget{
 			TextParagraph: &TextParagraph{
-				Text: notification.Heartbeat.Msg,
+				Text: cleanHeartbeatMsg,
 			},
 		})
 	}
 
 	// URL
-	if notification.Monitor.URL != "" {
+	displayURL := cleanURL
+	if displayURL == "" && cleanHostname != "" {
+		displayURL = cleanHostname
+	}
+	if displayURL != "" {
 		widgets = append(widgets, Widget{
 			DecoratedText: &DecoratedText{
 				TopLabel: "URL",
-				Text:     notification.Monitor.URL,
+				Text:     displayURL,
 			},
 		})
 	}
@@ -230,7 +239,7 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	}
 
 	// Add button to visit URL if available
-	if notification.Monitor.URL != "" {
+	if cleanURL != "" {
 		widgets = append(widgets, Widget{
 			ButtonList: &ButtonList{
 				Buttons: []Button{
@@ -238,7 +247,7 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 						Text: "Visit Site",
 						OnClick: &OnClick{
 							OpenLink: &OpenLink{
-								URL: notification.Monitor.URL,
+								URL: cleanURL,
 							},
 						},
 					},
@@ -264,8 +273,8 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	previewLines = append(previewLines, fmt.Sprintf("[%s] [%s %s]", notification.Monitor.Name, statusEmoji, statusLabel))
 
 	// Add detailed message if available
-	if notification.Heartbeat.Msg != "" {
-		previewLines = append(previewLines, notification.Heartbeat.Msg)
+	if cleanHeartbeatMsg != "" {
+		previewLines = append(previewLines, cleanHeartbeatMsg)
 	}
 
 	previewText := strings.Join(previewLines, "\n")
@@ -289,6 +298,18 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 			},
 		},
 	}
+}
+
+func sanitizeText(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	upper := strings.ToUpper(trimmed)
+	if upper == "N/A" || upper == "NA" || upper == "NULL" {
+		return ""
+	}
+	return trimmed
 }
 
 func sendToGoogleChat(message GoogleChatMessage) error {
