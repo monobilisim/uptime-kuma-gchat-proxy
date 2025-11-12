@@ -259,22 +259,43 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	// Create detailed preview text for mobile notifications
 	var previewLines []string
 
-	// First line with status
-	if isUp {
-		previewLines = append(previewLines, fmt.Sprintf("%s Application is back online", statusEmoji))
-	} else {
-		previewLines = append(previewLines, fmt.Sprintf("%s Application went down", statusEmoji))
+	// Check if message contains certificate expiration info
+	messageToCheck := cleanMsg
+	if messageToCheck == "" {
+		messageToCheck = cleanHeartbeatMsg
 	}
+	isCertificateMessage := strings.Contains(strings.ToLower(messageToCheck), "certificate") && 
+		(strings.Contains(strings.ToLower(messageToCheck), "expire") || 
+		 strings.Contains(strings.ToLower(messageToCheck), "expiration"))
 
-	// Monitor name
-	previewLines = append(previewLines, notification.Monitor.Name)
+	// First line with status or actual message for certificate expiration
+	if isCertificateMessage && messageToCheck != "" {
+		// Remove "Down -" or "DOWN -" prefix from certificate message
+		cleanedCertMsg := strings.TrimSpace(messageToCheck)
+		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "Down -")
+		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "DOWN -")
+		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "down -")
+		cleanedCertMsg = strings.TrimSpace(cleanedCertMsg)
+		// Use the cleaned certificate message as the first line (and only line)
+		previewLines = append(previewLines, cleanedCertMsg)
+	} else {
+		// Use generic status message
+		if isUp {
+			previewLines = append(previewLines, fmt.Sprintf("%s Application is back online", statusEmoji))
+		} else {
+			previewLines = append(previewLines, fmt.Sprintf("%s Application went down", statusEmoji))
+		}
 
-	// Status line with monitor name and emoji
-	previewLines = append(previewLines, fmt.Sprintf("[%s] [%s %s]", notification.Monitor.Name, statusEmoji, statusLabel))
+		// Monitor name
+		previewLines = append(previewLines, notification.Monitor.Name)
 
-	// Add detailed message if available
-	if cleanHeartbeatMsg != "" {
-		previewLines = append(previewLines, cleanHeartbeatMsg)
+		// Status line with monitor name and emoji
+		previewLines = append(previewLines, fmt.Sprintf("[%s] [%s %s]", notification.Monitor.Name, statusEmoji, statusLabel))
+
+		// Add detailed message if available
+		if cleanHeartbeatMsg != "" {
+			previewLines = append(previewLines, cleanHeartbeatMsg)
+		}
 	}
 
 	previewText := strings.Join(previewLines, "\n")
