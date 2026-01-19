@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -95,13 +96,15 @@ type OpenLink struct {
 	URL string `json:"url"`
 }
 
-var googleChatWebhookURL string
+var defaultWebhookURL string
+var tenantWebhookURLs map[string]string
 
 func main() {
 	// Get Google Chat Webhook URL from environment
-	googleChatWebhookURL = os.Getenv("GOOGLE_CHAT_WEBHOOK_URL")
-	if googleChatWebhookURL == "" {
-		log.Fatal("GOOGLE_CHAT_WEBHOOK_URL environment variable is required")
+	defaultWebhookURL = os.Getenv("GOOGLE_CHAT_WEBHOOK_URL")
+	tenantWebhookURLs = parseWebhookURLMap(os.Getenv("GOOGLE_CHAT_WEBHOOK_URLS"))
+	if defaultWebhookURL == "" && len(tenantWebhookURLs) == 0 {
+		log.Fatal("GOOGLE_CHAT_WEBHOOK_URL or GOOGLE_CHAT_WEBHOOK_URLS environment variable is required")
 	}
 
 	port := os.Getenv("PORT")
@@ -110,10 +113,16 @@ func main() {
 	}
 
 	http.HandleFunc("/webhook", webhookHandler)
+	http.HandleFunc("/webhook/", webhookHandler)
 	http.HandleFunc("/health", healthHandler)
 
 	log.Printf("Server starting on port %s", port)
-	log.Printf("Forwarding to Google Chat webhook: %s", maskWebhookURL(googleChatWebhookURL))
+	if defaultWebhookURL != "" {
+		log.Printf("Default Google Chat webhook: %s", maskWebhookURL(defaultWebhookURL))
+	}
+	if len(tenantWebhookURLs) > 0 {
+		log.Printf("Tenant webhook identifiers: %s", strings.Join(sortedWebhookKeys(tenantWebhookURLs), ", "))
+	}
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
@@ -123,6 +132,14 @@ func main() {
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	identifier := strings.TrimPrefix(r.URL.Path, "/webhook")
+	identifier = strings.TrimPrefix(identifier, "/")
+	targetURL, err := resolveWebhookURL(identifier)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -141,11 +158,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &notification); err != nil {
 		log.Printf("Error parsing Uptime Kuma notification: %v", err)
 		// Send raw message if parsing fails
-		sendSimpleMessage(string(body))
+		sendSimpleMessage(targetURL, string(body))
 	} else {
 		// Convert to Google Chat Card format
 		chatMessage := convertToGoogleChatCard(notification)
-		if err := sendToGoogleChat(chatMessage); err != nil {
+		if err := sendToGoogleChat(targetURL, chatMessage); err != nil {
 			log.Printf("Error sending to Google Chat: %v", err)
 			http.Error(w, "Error forwarding message", http.StatusInternalServerError)
 			return
@@ -264,9 +281,9 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	if messageToCheck == "" {
 		messageToCheck = cleanHeartbeatMsg
 	}
-	isCertificateMessage := strings.Contains(strings.ToLower(messageToCheck), "certificate") && 
-		(strings.Contains(strings.ToLower(messageToCheck), "expire") || 
-		 strings.Contains(strings.ToLower(messageToCheck), "expiration"))
+	isCertificateMessage := strings.Contains(strings.ToLower(messageToCheck), "certificate") &&
+		(strings.Contains(strings.ToLower(messageToCheck), "expire") ||
+			strings.Contains(strings.ToLower(messageToCheck), "expiration"))
 
 	// First line with status or actual message for certificate expiration
 	if isCertificateMessage && messageToCheck != "" {
@@ -333,7 +350,7 @@ func sanitizeText(value string) string {
 	return trimmed
 }
 
-func sendToGoogleChat(message GoogleChatMessage) error {
+func sendToGoogleChat(webhookURL string, message GoogleChatMessage) error {
 	jsonData, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("error marshaling message: %w", err)
@@ -341,7 +358,7 @@ func sendToGoogleChat(message GoogleChatMessage) error {
 
 	log.Printf("Sending to Google Chat: %s", string(jsonData))
 
-	resp, err := http.Post(googleChatWebhookURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("error sending request: %w", err)
 	}
@@ -356,14 +373,14 @@ func sendToGoogleChat(message GoogleChatMessage) error {
 	return nil
 }
 
-func sendSimpleMessage(text string) error {
+func sendSimpleMessage(webhookURL, text string) error {
 	simpleMsg := map[string]string{"text": text}
 	jsonData, err := json.Marshal(simpleMsg)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(googleChatWebhookURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return err
 	}
@@ -377,4 +394,54 @@ func maskWebhookURL(url string) string {
 		return "***"
 	}
 	return url[:20] + "***"
+}
+
+func parseWebhookURLMap(raw string) map[string]string {
+	urls := make(map[string]string)
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return urls
+	}
+	cleaned := strings.ReplaceAll(trimmed, ";", ",")
+	for _, entry := range strings.Split(cleaned, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) != 2 {
+			log.Printf("Invalid GOOGLE_CHAT_WEBHOOK_URLS entry: %q", entry)
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if key == "" || value == "" {
+			log.Printf("Invalid GOOGLE_CHAT_WEBHOOK_URLS entry: %q", entry)
+			continue
+		}
+		urls[key] = value
+	}
+	return urls
+}
+
+func resolveWebhookURL(identifier string) (string, error) {
+	if identifier == "" {
+		if defaultWebhookURL == "" {
+			return "", fmt.Errorf("missing webhook identifier")
+		}
+		return defaultWebhookURL, nil
+	}
+	if url, ok := tenantWebhookURLs[identifier]; ok {
+		return url, nil
+	}
+	return "", fmt.Errorf("unknown webhook identifier")
+}
+
+func sortedWebhookKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

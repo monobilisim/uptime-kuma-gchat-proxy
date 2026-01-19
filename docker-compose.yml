@@ -8,6 +8,7 @@ services:
       - "8080:8080"
     environment:
       - GOOGLE_CHAT_WEBHOOK_URL=${GOOGLE_CHAT_WEBHOOK_URL}
+      - GOOGLE_CHAT_WEBHOOK_URLS=${GOOGLE_CHAT_WEBHOOK_URLS}
       - PORT=8080
     restart: unless-stopped
     healthcheck:

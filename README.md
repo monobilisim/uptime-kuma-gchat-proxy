@@ -97,8 +97,14 @@ go run main.go
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `GOOGLE_CHAT_WEBHOOK_URL` | Google Chat webhook URL | - | Yes |
+| `GOOGLE_CHAT_WEBHOOK_URL` | Default Google Chat webhook URL | - | Yes (if `GOOGLE_CHAT_WEBHOOK_URLS` is empty) |
+| `GOOGLE_CHAT_WEBHOOK_URLS` | Comma-separated `id=url` pairs for multi-tenant routing | - | Yes (if `GOOGLE_CHAT_WEBHOOK_URL` is empty) |
 | `PORT` | Port for the service to listen on | 8080 | No |
+
+Example multi-tenant mapping:
+```bash
+GOOGLE_CHAT_WEBHOOK_URLS=team-a=https://chat.googleapis.com/v1/spaces/AAA/messages?key=AAA&token=AAA,team-b=https://chat.googleapis.com/v1/spaces/BBB/messages?key=BBB&token=BBB
+```
 
 ### Getting Google Chat Webhook URL
 
@@ -117,7 +123,7 @@ go run main.go
 3. Select **Webhook** as the **Notification Type**
 4. Enter the following information:
    - **Friendly Name:** Google Chat (Proxy)
-   - **Post URL:** `http://localhost:8080/webhook` (or your server address)
+   - **Post URL:** `http://localhost:8080/webhook` (or `http://localhost:8080/webhook/{identifier}` for multi-tenant)
    - **Content Type:** `application/json`
 5. Click **Test** to verify the connection
 6. Click **Save**
@@ -131,6 +137,11 @@ go run main.go
 Once the service is running, configure Uptime Kuma to send webhooks to:
 ```
 http://your-server:8080/webhook
+```
+
+Multi-tenant usage with an identifier:
+```
+http://your-server:8080/webhook/team-a
 ```
 
 The proxy will automatically:
@@ -201,6 +212,10 @@ Uptime Kuma webhook URL: `http://uptime-kuma-gchat-proxy:8080/webhook`
 ### POST /webhook
 
 Receives webhooks from Uptime Kuma and forwards them to Google Chat.
+
+### POST /webhook/{identifier}
+
+Receives webhooks and forwards them to the Google Chat webhook mapped to `{identifier}`.
 
 **Request Body:**
 ```json
