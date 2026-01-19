@@ -303,11 +303,10 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 			previewLines = append(previewLines, fmt.Sprintf("%s Application went down", statusEmoji))
 		}
 
-		// Monitor name
-		previewLines = append(previewLines, notification.Monitor.Name)
-
 		// Status line with monitor name and emoji
-		previewLines = append(previewLines, fmt.Sprintf("[%s] [%s %s]", notification.Monitor.Name, statusEmoji, statusLabel))
+		if notification.Monitor.Name != "" {
+			previewLines = append(previewLines, fmt.Sprintf("[%s] [%s %s]", notification.Monitor.Name, statusEmoji, statusLabel))
+		}
 
 		// Add detailed message if available
 		if cleanHeartbeatMsg != "" {
