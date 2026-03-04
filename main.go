@@ -281,20 +281,23 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 	if messageToCheck == "" {
 		messageToCheck = cleanHeartbeatMsg
 	}
-	isCertificateMessage := strings.Contains(strings.ToLower(messageToCheck), "certificate") &&
-		(strings.Contains(strings.ToLower(messageToCheck), "expire") ||
-			strings.Contains(strings.ToLower(messageToCheck), "expiration"))
+	lower := strings.ToLower(messageToCheck)
+	isExpiryMessage := (strings.Contains(lower, "certificate") || strings.Contains(lower, "domain")) &&
+		(strings.Contains(lower, "expire") || strings.Contains(lower, "expiration"))
 
 	// First line with status or actual message for certificate expiration
-	if isCertificateMessage && messageToCheck != "" {
-		// Remove "Down -" or "DOWN -" prefix from certificate message
-		cleanedCertMsg := strings.TrimSpace(messageToCheck)
-		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "Down -")
-		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "DOWN -")
-		cleanedCertMsg = strings.TrimPrefix(cleanedCertMsg, "down -")
-		cleanedCertMsg = strings.TrimSpace(cleanedCertMsg)
-		// Use the cleaned certificate message as the first line (and only line)
-		previewLines = append(previewLines, cleanedCertMsg)
+	if isExpiryMessage && messageToCheck != "" {
+		// Remove status prefix ("Down -", "UP -", etc.) from expiry message
+		cleanedMsg := strings.TrimSpace(messageToCheck)
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "Down -")
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "DOWN -")
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "down -")
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "Up -")
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "UP -")
+		cleanedMsg = strings.TrimPrefix(cleanedMsg, "up -")
+		cleanedMsg = strings.TrimSpace(cleanedMsg)
+		// Use the cleaned expiry message as the first line (and only line)
+		previewLines = append(previewLines, cleanedMsg)
 	} else {
 		// Use generic status message
 		if isUp {
