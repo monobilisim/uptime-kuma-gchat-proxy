@@ -76,7 +76,25 @@ docker run -d \
   uptime-kuma-gchat-proxy
 ```
 
-### Method 3: Direct Go Execution
+### Method 3: GitHub Releases (Binary)
+
+Download the pre-built binary from [GitHub Releases](https://github.com/monobilisim/uptime-kuma-gchat-proxy/releases):
+
+```bash
+# Linux amd64
+curl -L -o /usr/local/bin/uptime-kuma-gchat-proxy \
+  https://github.com/monobilisim/uptime-kuma-gchat-proxy/releases/latest/download/uptime-kuma-gchat-proxy_linux_amd64
+chmod +x /usr/local/bin/uptime-kuma-gchat-proxy
+
+# Linux arm64
+curl -L -o /usr/local/bin/uptime-kuma-gchat-proxy \
+  https://github.com/monobilisim/uptime-kuma-gchat-proxy/releases/latest/download/uptime-kuma-gchat-proxy_linux_arm64
+chmod +x /usr/local/bin/uptime-kuma-gchat-proxy
+```
+
+Then configure as a [systemd service](#systemd-deployment).
+
+### Method 4: Direct Go Execution
 
 ```bash
 # Download dependencies
