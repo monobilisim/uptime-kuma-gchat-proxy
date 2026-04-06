@@ -221,11 +221,21 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 		})
 	}
 
-	// URL
-	displayURL := cleanURL
-	if displayURL == "" && cleanHostname != "" {
-		displayURL = cleanHostname
+	displayURL := ""
+	clickableURL := ""
+
+	switch {
+	case isUsefulURL(cleanURL):
+		displayURL = cleanURL
+		clickableURL = cleanURL
+	case cleanHostname != "":
+		if notification.Monitor.Port > 0 {
+			displayURL = fmt.Sprintf("%s:%d", cleanHostname, notification.Monitor.Port)
+		} else {
+			displayURL = cleanHostname
+		}
 	}
+
 	if displayURL != "" {
 		widgets = append(widgets, Widget{
 			DecoratedText: &DecoratedText{
@@ -255,8 +265,7 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 		})
 	}
 
-	// Add button to visit URL if available
-	if cleanURL != "" {
+	if clickableURL != "" {
 		widgets = append(widgets, Widget{
 			ButtonList: &ButtonList{
 				Buttons: []Button{
@@ -264,7 +273,7 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 						Text: "Visit Site",
 						OnClick: &OnClick{
 							OpenLink: &OpenLink{
-								URL: cleanURL,
+								URL: clickableURL,
 							},
 						},
 					},
@@ -338,6 +347,16 @@ func convertToGoogleChatCard(notification UptimeKumaNotification) GoogleChatMess
 			},
 		},
 	}
+}
+
+func isUsefulURL(url string) bool {
+	trimmed := strings.TrimSpace(url)
+	if trimmed == "" {
+		return false
+	}
+	stripped := strings.TrimPrefix(trimmed, "https://")
+	stripped = strings.TrimPrefix(stripped, "http://")
+	return strings.TrimSpace(stripped) != ""
 }
 
 func sanitizeText(value string) string {
